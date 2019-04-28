@@ -1,43 +1,46 @@
 from selenium import webdriver
-import time
+import datetime
 import json
-import requests
 from bs4 import BeautifulSoup
 
 
-def parse_element(element, element_type):
-    if element_type == "movie_name":
-        movie_name = str(element).split('name">')[1].split('</')[0]
-        return movie_name
-    elif element_type == "movie_data":
-        element = str(element).replace("amp;", "").split('data-url="')[1].split('" href="#">')
-        url = element[0]
-        presentation_code = url.split("presentationCode=")[1].split("-")[0]
-        screen_time = element[1][:-4]
-        return presentation_code, screen_time, url
-
-
-class Scraper:
+class RavHenHerzlyiaScraper:
 
     def __init__(self):
         self.driver = webdriver.Chrome()
+        self.load_website_data_to_json("Rav_Hen_Herzlyia")
+        self.driver.close()
 
-    def load_website_data_to_json(self, website_name, movies_screens_url):
-        self.driver.get(movies_screens_url)
+    @staticmethod
+    def get_current_movies_screens_url():
+        url = "https://www.rav-hen.co.il/#/buy-tickets-by-cinema?in-cinema=1061&at=%s&view-mode=list" % datetime.date.today()
+        return url
+
+    @staticmethod
+    def parse_element(element, element_type):
+        if element_type == "movie_name":
+            movie_name = str(element).split('name">')[1].split('</')[0]
+            return movie_name
+        elif element_type == "movie_screen":
+            element = str(element).replace("amp;", "").split('data-url="')[1].split('" href="#">')
+            url = element[0]
+            presentation_code = url.split("presentationCode=")[1].split("-")[0]
+            screen_time = element[1][:-4]
+            return presentation_code, screen_time, url
+
+    def load_website_data_to_json(self, website_name):
+        self.driver.get(RavHenHerzlyiaScraper.get_current_movies_screens_url())
         soup = BeautifulSoup(self.driver.page_source, "html.parser")
-        movies_names = [parse_element(movie, "movie_name") for movie in soup.find_all(attrs={"class": "qb-movie-name"})]
-        movies_data = [parse_element(movie, "movie_data") for movie in soup.find_all(attrs={"class": "btn btn-sm btn-primary"})]
+        movies_names = [RavHenHerzlyiaScraper.parse_element(movie, "movie_name") for movie in soup.find_all(attrs={"class": "qb-movie-name"})]
+        movies_data = [RavHenHerzlyiaScraper.parse_element(movie, "movie_screen") for movie in soup.find_all(attrs={"class": "btn btn-sm btn-primary"})]
         movies_dict = {}
-        time.sleep(3)
         for movie_name in movies_names:
-            print(movie_name)
-            print(movies_data[0][0])
             movies_dict[movie_name] = {"code": movies_data[0][0]}
             for movie_data in movies_data:
                 if movie_data[0] == movies_dict[movie_name]["code"]:
                     movies_dict[movie_name][movie_data[1]] = movie_data[2]
                 else:
-                    break ## investigate why can't use continue?
+                    break
             movies_data = [movie_data for movie_data in movies_data if movie_data[2] not in movies_dict[movie_name].values()]
 
         with open("bank.json", "r") as json_file:
@@ -47,8 +50,7 @@ class Scraper:
             json.dump(data, outfile)
 
 
-now = Scraper()
-print(now.load_website_data_to_json("rav_hen_herzlyia", "https://www.rav-hen.co.il/#/buy-tickets-by-cinema?in-cinema=1061&at=2019-04-27&view-mode=list"))
+now = RavHenHerzlyiaScraper()
 
 
 
