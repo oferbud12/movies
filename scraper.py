@@ -51,7 +51,6 @@ class RavHenHerzlyiaScraper:
         active_driver = webdriver.Chrome()
         with open("bank.json", "r") as json_file:
             data = json.load(json_file)
-
         try:
             active_driver.get(data[website[1]][movie_name][screen_time])
         except KeyError:
@@ -60,23 +59,32 @@ class RavHenHerzlyiaScraper:
         active_driver.find_element_by_xpath('//select[@class="ddlTicketQuantity"]/option[@value="%s"]' % str(tickets)).click()
         active_driver.find_element_by_xpath('//a[@id="lbSelectSeats"]').click()
 
-        ################
+        # Fetching seats data
 
-        # active_driver.find_element_by_xpath('//a[@class="u1st_accBtn u1st_accBtnText"]').click()
-        # time.sleep(15)
-        # active_driver.find_element_by_xpath('//span[@class="slider round"]').click()
-        # active_driver.find_element_by_xpath('//app-button[@id="applyBtn"]/button').click()
+        soup = BeautifulSoup(active_driver.page_source, "html.parser")
+        seats_raw_data = soup.find("div", attrs={"id": "accesibleSeatPlanContainer"})
+        seats_data = str(seats_raw_data).split('id="s_')[1:]
+        seats = []
+        valid_char = [str(i) for i in range(50)] + ["_"]
+        for seat in seats_data:
+            seat_line = "".join(char for char in list(seat[:5]) if char in valid_char).split("_")
+            try:
+                state = seat.split('data-state="')[1][:1]
+                seats.append((seat_line, state))
+            except IndexError:
+                state = "not available"
+                seats.append((seat_line, state))
 
-        # alternative:
-        #
-        # soup = BeautifulSoup(browser.page_source, "html.parser")
-        # a = soup.find("div", attrs={"id": "accesibleSeatPlanContainer"})
+        last_line = int(seats[-1][0][1])
+        parsed_seats = {}
+        for i in range(1, last_line + 1):
+            parsed_seats[i] = []
+        for seat in seats:
+            parsed_seats[int(seat[0][1])].append({int(seat[0][0]): seat[1]})
 
+        # What about last seat??
 
-
-
-
-
+        return parsed_seats
 
 
 
