@@ -102,9 +102,9 @@ class RavHenScraper:
         last_line = seats_splitted_parsed_list[-1][0][1]
         parsed_seats_dict = {}
         for i in range(1, last_line + 1):
-            parsed_seats_dict[i] = []
+            parsed_seats_dict[i] = {}
         for seat in seats_splitted_parsed_list:
-            parsed_seats_dict[seat[0][1]].append({seat[0][0]: seat[1], "offset": seat[2]})
+            parsed_seats_dict[seat[0][1]][seat[0][0]] = {"state": seat[1], "offset": seat[2]}
 
         return parsed_seats_dict
 
