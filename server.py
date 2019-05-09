@@ -20,7 +20,7 @@ def load_websites():
                 scraper.load_website_data_to_json(getattr(scraper, website))
                 # a random delay before going on the next
                 time.sleep(random.randint(8, 30))
-                
+
 
 
 

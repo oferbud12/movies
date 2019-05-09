@@ -1,7 +1,18 @@
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import datetime
 import json
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+import inspect
+
+
+def randomized_user_agent():
+    ua = UserAgent()
+    user_agent = ua.random
+    opts = Options()
+    opts.add_argument("user-agent=[%s]" % user_agent)
+    return opts
 
 
 class RavHenScraper:
@@ -22,7 +33,7 @@ class RavHenScraper:
     @classmethod
     def load_website_data_to_json(cls, website):
 
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(options=randomized_user_agent())
         driver.get(RavHenScraper.get_current_movies_screens_url(website[0]))
         soup = BeautifulSoup(driver.page_source, "html.parser")
         movies_dict = {}
@@ -48,7 +59,7 @@ class RavHenScraper:
     # Gets you all the way to page of choosing seats for a certain movie screen
     def go_to_screen(cls, website, movie_name, screen_time, tickets):
 
-        active_driver = webdriver.Chrome()
+        active_driver = webdriver.Chrome(options=randomized_user_agent())
         with open("bank.json", "r") as json_file:
             data = json.load(json_file)
         try:
@@ -71,7 +82,8 @@ class RavHenScraper:
         seats_splitted_parsed_list = []
 
         valid_char = [str(i) for i in range(50)] + ["_"]
-        offset = 0
+        seat_offset = 0
+        line_offset = 0
         line_info = lambda seat_str: int("".join([char for char in list(seat_str[:5]) if char in valid_char]).split("_")[0])
 
         for seat in seats_splitted_raw_list:
@@ -80,22 +92,24 @@ class RavHenScraper:
             line = line_info(seat)
             if seats_splitted_raw_list.index(seat) == 0:
                 # First run, no former seats to compare, there should be no offset
-                offset = 0
+                seat_offset = 0
             elif line != line_info(seats_splitted_raw_list[seats_splitted_raw_list.index(seat) - 1]):
                 # This seat element is from a new line in the iteration, offset should be re-initialized
-                offset = 0
+                seat_offset = 0
+                # update line offset (and never re-initialize)
+                line_offset += line - line_info(seats_splitted_raw_list[seats_splitted_raw_list.index(seat) - 1]) - 1
 
             # Parsing the seat data and adding to 'seats_splitted_parsed_list'
             try:
                 actual_data = seat.split('id="s_')[1]
                 website_seat_line = "".join([char for char in list(actual_data[:5]) if char in valid_char]).split("_")
                 real_seat_line = [int(element) for element in website_seat_line]
-                real_seat_line = [real_seat_line[0] - offset, real_seat_line[1]]
+                real_seat_line = [real_seat_line[0] - seat_offset, real_seat_line[1] - line_offset]
                 seat_state = "".join(seat.split('data-state="')[1][:1])
-                seats_splitted_parsed_list.append((real_seat_line, seat_state, offset))
+                seats_splitted_parsed_list.append((real_seat_line, seat_state, seat_offset))
             except IndexError:
                 # this is not a real seat in the line
-                offset += 1
+                seat_offset += 1
                 continue
 
         # Create the parsed_seats_dict
@@ -109,10 +123,11 @@ class RavHenScraper:
         return parsed_seats_dict
 
 
-# Testing
+if __name__ == "__main__":
 
-seats = RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "20:30", 3))
-print(seats)
+    print(RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "21:30", 10)))
+
+
 
 
 
