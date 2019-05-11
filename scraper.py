@@ -4,7 +4,6 @@ import datetime
 import json
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-import inspect
 
 
 def randomized_user_agent():
