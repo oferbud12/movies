@@ -10,10 +10,11 @@ class OrderBestSeats:
         self.tickets = tickets
         self.optional_lines = self.get_optional_lines()
         self.fake_optional_lines = self.fake_the_optional_lines()
-        self.best_line = self.validate_best_line(self.get_best_line_candidate())
-        last_play = self.validate_best_seats(self.get_optional_best_seats())
-        self.best_seats_in_best_line = last_play[0]
-        self.away_from_ideal = last_play[1]
+        # self.best_line = self.validate_best_line(self.get_best_line_candidate())
+        # last_play = self.validate_best_seats(self.get_optional_best_seats())
+        # self.best_seats_in_best_line = last_play[0]
+        # self.away_from_ideal = last_play[1]
+        self.best_seats = self.find_best_seats(2)
 
     def theater_measures(self):
         last_seat_in_line = lambda line: list(self.real_seats_db[line].keys())[-1]
@@ -74,7 +75,10 @@ class OrderBestSeats:
                 optional_lines[line] = valid_chunks
             else:
                 continue
-        return optional_lines
+        if len(optional_lines) == 0:
+            raise Exception("no chunk big enough to accomodate all")
+        else:
+            return optional_lines
 
     def get_best_line_candidate(self, type_height_ratio=0.75):
         # Find the best line candidate in the real seats_db -
@@ -113,10 +117,10 @@ class OrderBestSeats:
         fake_optional_lines = {line: [fake_the_chunk(chunk) for chunk in self.optional_lines[line]] for line in self.optional_lines.keys()}
         return fake_optional_lines
 
-    def validate_best_seats_in_best_line_chunks(self, optional_best_seats):
+    def validate_best_seats_in_best_line_chunks(self, optional_best_seats, optional_best_line):
         # Function used to validate that our optional_best_seats are contained in one of the best line's chunks
         optional_best_seats_are_found_in_chunk = None
-        for chunk in self.fake_optional_lines[self.best_line]:
+        for chunk in self.fake_optional_lines[optional_best_line]:
             if set(optional_best_seats).intersection(set(chunk.keys())) == set(optional_best_seats):
                 optional_best_seats_are_found_in_chunk = True
                 break
@@ -130,9 +134,9 @@ class OrderBestSeats:
         new_optional_best_seats = list(range(optional_best_seats[0] + places_to_move, optional_best_seats[-1] + 1 + places_to_move))
         return new_optional_best_seats
 
-    def unfake_best_seats(self, optional_best_seats):
+    def unfake_best_seats(self, optional_best_seats, best_line):
         interesting_chunk = None
-        for chunk in self.fake_optional_lines[self.best_line]:
+        for chunk in self.fake_optional_lines[best_line]:
             if set(optional_best_seats).intersection(set(chunk.keys())) == set(optional_best_seats):
                 interesting_chunk = chunk
                 break
@@ -142,34 +146,58 @@ class OrderBestSeats:
         unfake_interesting_chunk_only_best_seats = {seat - interesting_chunk_only_best_seats[seat]: interesting_chunk_only_best_seats[seat] for seat in interesting_chunk_only_best_seats.keys()}
         return unfake_interesting_chunk_only_best_seats
 
-    def validate_best_seats(self, optional_best_seats):
+    def validate_best_seats(self, optional_best_seats, optional_best_line, max_movement_in_line):
         # Rotate the optional best seats as less as possible,
         # until fitting in to one of the best line's fake chunks - as if there was no offset
         movements_away_from_ideal_seats = 0
-        optional_best_seats_are_valid = self.validate_best_seats_in_best_line_chunks(optional_best_seats)
+        optional_best_seats_are_valid = self.validate_best_seats_in_best_line_chunks(optional_best_seats, optional_best_line)
         if optional_best_seats_are_valid is not True:
             # Maximum movement is the difference between the last seat in the last chunk,
             # to the last seat in the optional best seats
-            max_movement = list(self.fake_optional_lines[self.best_line][-1].keys())[-1] - optional_best_seats[-1]
-            for i in range(1, (max_movement * 2) + 1):
+            #max_movement = list(self.fake_optional_lines[self.best_line][-1].keys())[-1] - optional_best_seats[-1]
+            for i in range(1, (max_movement_in_line * 2) + 1):
                 if i % 2 != 0:
                     optional_best_seats = self.move_optional_best_seats_horizontally(i, optional_best_seats)
                 elif i % 2 == 0:
                     optional_best_seats = self.move_optional_best_seats_horizontally(-i, optional_best_seats)
                 movements_away_from_ideal_seats += 1
-                optional_best_seats_are_valid = self.validate_best_seats_in_best_line_chunks(optional_best_seats)
+                optional_best_seats_are_valid = self.validate_best_seats_in_best_line_chunks(optional_best_seats, optional_best_line)
                 if optional_best_seats_are_valid is True:
-                    break
-        return self.unfake_best_seats(optional_best_seats), movements_away_from_ideal_seats
+                    return self.unfake_best_seats(optional_best_seats, optional_best_line), movements_away_from_ideal_seats
+                else:
+                    continue
+            return False, movements_away_from_ideal_seats
+        else:
+            return self.unfake_best_seats(optional_best_seats, optional_best_line), movements_away_from_ideal_seats
+
+    def find_best_seats(self, max_movement_between_lines):
+        best_line_for_theater_measures = self.validate_best_line(self.get_best_line_candidate())
+        best_seats_for_theater_measures = self.get_optional_best_seats()
+        validation_of_best_seats = self.validate_best_seats(best_seats_for_theater_measures, best_line_for_theater_measures, 2)
+        if validation_of_best_seats[0] is False:
+            steps_away_from_ideal = validation_of_best_seats[1]
+            # max_movement = list(self.fake_optional_lines[self.best_line][-1].keys())[-1] - optional_best_seats[-1]
+            for i in range(1, (max_movement_between_lines * 2) + 1):
+                steps_away_from_ideal += 1
+                if i % 2 != 0:
+                    validation_of_best_seats = self.validate_best_seats(best_seats_for_theater_measures, best_line_for_theater_measures + i, 2)
+                elif i % 2 == 0:
+                    validation_of_best_seats = self.validate_best_seats(best_seats_for_theater_measures, best_line_for_theater_measures - i, 2)
+                steps_away_from_ideal += validation_of_best_seats[1]
+                if validation_of_best_seats[0] is not False:
+                    return validation_of_best_seats
+                else:
+                    continue
+            return "too much movement, shouldn't buy tickets at all"
+        else:
+            return validation_of_best_seats
 
 
 if __name__ == "__main__":
 
     movie_seats = {1: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 2: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 3: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 4: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 5: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 6: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 7: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 8: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 9: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 1}, 8: {'state': '0', 'offset': 1}, 9: {'state': '0', 'offset': 1}, 10: {'state': '0', 'offset': 1}, 11: {'state': '0', 'offset': 1}, 12: {'state': '0', 'offset': 1}, 13: {'state': '0', 'offset': 1}, 14: {'state': '0', 'offset': 1}, 15: {'state': '0', 'offset': 1}, 16: {'state': '0', 'offset': 1}, 17: {'state': '0', 'offset': 1}, 18: {'state': '0', 'offset': 1}, 19: {'state': '0', 'offset': 1}, 20: {'state': '0', 'offset': 1}, 21: {'state': '0', 'offset': 1}}, 10: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 0}, 7: {'state': '0', 'offset': 6}, 8: {'state': '0', 'offset': 6}, 9: {'state': '0', 'offset': 6}, 10: {'state': '0', 'offset': 6}, 11: {'state': '0', 'offset': 6}, 12: {'state': '0', 'offset': 6}, 13: {'state': '0', 'offset': 6}, 14: {'state': '0', 'offset': 6}, 15: {'state': '0', 'offset': 6}, 16: {'state': '0', 'offset': 6}}, 11: {1: {'state': '0', 'offset': 0}, 2: {'state': '0', 'offset': 0}, 3: {'state': '0', 'offset': 0}, 4: {'state': '0', 'offset': 0}, 5: {'state': '0', 'offset': 0}, 6: {'state': '0', 'offset': 8}, 7: {'state': '0', 'offset': 8}, 8: {'state': '0', 'offset': 8}, 9: {'state': '0', 'offset': 8}, 10: {'state': '0', 'offset': 8}, 11: {'state': '0', 'offset': 8}, 12: {'state': '0', 'offset': 8}, 13: {'state': '0', 'offset': 8}, 14: {'state': '0', 'offset': 8}}}
-    movie_tickets = 7
+    movie_tickets = 9
     check = OrderBestSeats(movie_seats, movie_tickets)
-    print(check.best_line)
-    print(check.best_seats_in_best_line)
-    print(check.away_from_ideal)
+    print(check.best_seats)
 
     # add 'gushim' support in get_best_line_candidate and get_optional_best_seats
