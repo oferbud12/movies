@@ -124,7 +124,7 @@ class RavHenScraper:
 
 if __name__ == "__main__":
 
-    print(RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "21:30", 10)))
+    print(RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "17:00", 10)))
 
 
 
