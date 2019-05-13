@@ -62,23 +62,33 @@ class MovieOrder:
             for chunk in chunks:
                 if len(chunk) >= self.tickets:
                     valid = True
+                    optional_lines[line] = {"line_offset": None, "seats": []}
                     valid_chunks.append(chunk)
                 else:
                     continue
             if valid is True:
-                optional_lines[line] = valid_chunks
+                optional_lines[line]["line_offset"] = self.seats_db[line]["line_offset"]
+                optional_lines[line]["seats"] = valid_chunks
             else:
                 continue
         if len(optional_lines) == 0:
             raise Exception("No chunk is big enough to accommodate all participants.")
         else:
+            print(optional_lines)
             return optional_lines
 
     def fake_the_optional_lines(self):
         # Function used to "fake" the optional lines dict -
         # it changes each chunk's seat to its real location in the theater space, by re-initializing it with its offset
+
         fake_the_chunk = lambda chunk: {seat + chunk[seat]: chunk[seat] for seat in chunk.keys()}
-        fake_optional_lines = {line: [fake_the_chunk(chunk) for chunk in self.optional_lines[line]] for line in self.optional_lines.keys()}
+        fake_the_line = lambda line, line_offset: line + line_offset
+
+        fake_optional_lines = {fake_the_line(line, self.optional_lines[line]["line_offset"]): {"line_offset": self.optional_lines[line]["line_offset"], "seats": [fake_the_chunk(chunk) for chunk in self.optional_lines[line]["seats"]]} for line in self.optional_lines.keys()}
+
+        # fake_optional_lines = {fake_the_line(line, self.optional_lines[line]["line_offset"]): {"line_offset": self.optional_lines[line]["line_offset"], "seats":
+        #     [fake_the_chunk(chunk) for chunk in self.optional_lines[line]["seats"]] for line in self.optional_lines.keys()}
+        print(fake_optional_lines)
         return fake_optional_lines
 
 
@@ -92,13 +102,14 @@ class BestSeats(MovieOrder):
     def get_best_line_for_theater_measures(self, type_height_ratio=0.75):
         # Find the best line candidate in the real seats_db -
         # if no conditions were involved, according to the type_height_ratio and the theater's measures
-        max_line = list(self.real_seats_db.keys())[-1]
-        best_line = int(math.ceil(type_height_ratio * int(max_line)))
+        real_last_line = list(self.real_seats_db.keys())[-1]
+        max_fake_line = real_last_line + self.optional_lines[real_last_line]["line_offset"]
+        best_line = int(math.ceil(type_height_ratio * int(max_fake_line)))
         return best_line
 
     def validate_best_line_for_theater_measures(self, best_line, max_movement_between_lines=3):
         # Rotate as less as possible to find the closest best_line_for_theater_measures in our optional lines
-        if best_line not in self.optional_lines.keys():
+        if best_line not in self.fake_optional_lines.keys():
             for i in range(1, (max_movement_between_lines * 2) + 1):
                 if i % 2 != 0:
                     best_line += i
@@ -128,7 +139,7 @@ class BestSeats(MovieOrder):
     def validate_best_seats_in_best_line_chunks(self, optional_best_seats, optional_best_line):
         # Function used to validate that our optional_best_seats are contained in one of the optional best line's chunks
         optional_best_seats_are_found_in_chunk = None
-        for chunk in self.fake_optional_lines[optional_best_line]:
+        for chunk in self.fake_optional_lines[optional_best_line]["seats"]:
             if set(optional_best_seats).intersection(set(chunk.keys())) == set(optional_best_seats):
                 optional_best_seats_are_found_in_chunk = True
                 break
@@ -146,15 +157,16 @@ class BestSeats(MovieOrder):
         # Function used after we've found our best_seats in the best_line -
         # converts the fake seats to the actual seat number in the movie theater
         interesting_chunk = None
-        for chunk in self.fake_optional_lines[best_line]:
+        for chunk in self.fake_optional_lines[best_line]["seats"]:
             if set(best_seats).intersection(set(chunk.keys())) == set(best_seats):
                 interesting_chunk = chunk
                 break
             else:
                 continue
         interesting_chunk_only_best_seats = {seat: interesting_chunk[seat] for seat in interesting_chunk.keys() if seat in best_seats}
-        unfake_interesting_chunk_only_best_seats = {seat - interesting_chunk_only_best_seats[seat]: interesting_chunk_only_best_seats[seat] for seat in interesting_chunk_only_best_seats.keys()}
-        return unfake_interesting_chunk_only_best_seats
+        real_interesting_chunk_only_best_seats = {seat - interesting_chunk_only_best_seats[seat]: interesting_chunk_only_best_seats[seat] for seat in interesting_chunk_only_best_seats.keys()}
+        real_best_line = best_line - self.fake_optional_lines[best_line]["line_offset"]
+        return real_interesting_chunk_only_best_seats, real_best_line
 
     def validate_optional_best_seats(self, optional_best_seats, optional_best_line, max_movement_in_line=2):
         # Rotate the optional best seats as less as possible,
@@ -169,12 +181,12 @@ class BestSeats(MovieOrder):
                 self.steps_away_from_ideal += 1
                 optional_best_seats_are_valid = self.validate_best_seats_in_best_line_chunks(optional_best_seats, optional_best_line)
                 if optional_best_seats_are_valid is True:
-                    return self.unfake_best_seats(optional_best_seats, optional_best_line), optional_best_line
+                    return self.unfake_best_seats(optional_best_seats, optional_best_line)
                 else:
                     continue
             return False, False
         else:
-            return self.unfake_best_seats(optional_best_seats, optional_best_line), optional_best_line
+            return self.unfake_best_seats(optional_best_seats, optional_best_line)
 
     def find_best_seats(self, max_movement_between_lines=2):
         best_line_for_theater_measures = self.validate_best_line_for_theater_measures(self.get_best_line_for_theater_measures())
