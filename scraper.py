@@ -105,26 +105,29 @@ class RavHenScraper:
                 real_seat_line = [int(element) for element in website_seat_line]
                 real_seat_line = [real_seat_line[0] - seat_offset, real_seat_line[1] - line_offset]
                 seat_state = "".join(seat.split('data-state="')[1][:1])
-                seats_splitted_parsed_list.append((real_seat_line, seat_state, seat_offset))
+                #seats_splitted_parsed_list.append((real_seat_line, seat_state, seat_offset))
+                seats_splitted_parsed_list.append((real_seat_line[1], line_offset, real_seat_line[0], seat_state, seat_offset))
             except IndexError:
                 # this is not a real seat in the line
                 seat_offset += 1
                 continue
 
         # Create the parsed_seats_dict
-        last_line = seats_splitted_parsed_list[-1][0][1]
+        last_line = seats_splitted_parsed_list[-1][0]
         parsed_seats_dict = {}
         for i in range(1, last_line + 1):
-            parsed_seats_dict[i] = {}
+            parsed_seats_dict[i] = {"line_offset": None, "seats": {}}
         for seat in seats_splitted_parsed_list:
-            parsed_seats_dict[seat[0][1]][seat[0][0]] = {"state": seat[1], "offset": seat[2]}
+            #parsed_seats_dict[seat[0][1]][seat[0][0]] = {"state": seat[1], "offset": seat[2]}
+            parsed_seats_dict[seat[0]]["line_offset"] = seat[1]
+            parsed_seats_dict[seat[0]]["seats"][seat[2]] = {"state": seat[3], "offset": seat[4]}
 
         return parsed_seats_dict
 
 
 if __name__ == "__main__":
 
-    print(RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "17:00", 10)))
+    print(RavHenScraper.parse_soup_seats(RavHenScraper.go_to_screen(RavHenScraper.HERZLYIA, "הנוקמים: סוף המשחק", "21:30", 10)))
 
 
 

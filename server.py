@@ -7,7 +7,7 @@ import random
 def load_websites():
     while True:
         # schedule job, something like:
-        general_time_to_scrape = str(datetime.time(9, 6, 0))
+        general_time_to_scrape = str(datetime.time(12, 28, 0))
         now = str(datetime.datetime.now().time())[:-7]
         # then, when the job runs:
         scrapers = [RavHenScraper]
@@ -22,9 +22,6 @@ def load_websites():
                     # a random delay before going on the next
                     time.sleep(random.randint(8, 30))
             return "Done"
-
-
-
 
 
 
