@@ -108,6 +108,7 @@ class BestSeats(MovieOrder):
         super(BestSeats, self).__init__(*args, **kwargs)
         self.steps_away_from_ideal = 0
         self.best_seats = self.find_best_seats()
+        self.reversed_best_seats = self.reverse_real_best_seats_to_user(self.best_seats)
 
     def get_best_line_for_theater_measures(self, type_height_ratio=0.75):
         # Find the best line candidate (the 'ideal') in the real theater's space -
@@ -150,7 +151,8 @@ class BestSeats(MovieOrder):
         on_the_right = places_to_add - on_the_left
         start_seat = best_seat_in_line - on_the_left
         end_seat = best_seat_in_line + on_the_right
-        return list(range(start_seat, end_seat + 1))
+        best_seats_for_theater_measures = list(range(start_seat, end_seat + 1))
+        return best_seats_for_theater_measures
 
     def validate_best_seats_in_best_line_chunks(self, optional_best_seats, optional_best_line):
         # Function used to validate that our optional_best_seats are contained in one of the optional best line's chunks
@@ -186,16 +188,6 @@ class BestSeats(MovieOrder):
         # Return tuple of best seats: (list of real best seats, real best line)
         return real_interesting_chunk_only_best_seats, real_best_line
 
-    def reverse_real_best_seats_to_user(self, best_seats_tuple):
-        # The scraping gives us the seats as counted from left to write,
-        # while the movie theaters actually count them from right to left.
-        # This function "reverses" the best seats tuple and presents it as shown by the movie theater
-        best_seats = best_seats_tuple[0]
-        best_line = best_seats_tuple[1]
-        seats_in_best_line = list(self.real_seats_db[best_line]["seats"].keys())
-        reversed_to_user_best_seats = seats_in_best_line[::-1][(best_seats[0] - 1):best_seats[-1]][::-1]
-        return reversed_to_user_best_seats, best_line
-
     def validate_optional_best_seats(self, optional_best_seats, optional_best_line, max_movement_in_line=2):
         # (Always comparing to the fake_optional_lines - the real theater space should be our reference)
         # Rotate the optional best seats inside the optional_best_line as less as possible -
@@ -214,7 +206,7 @@ class BestSeats(MovieOrder):
                 if optional_best_seats_are_valid is True:
                     # The optional_best_seats are contained in one of the optional best line's chunks -
                     # return the real seats and real line numbers
-                    return self.reverse_real_best_seats_to_user(self.unfake_best_seats(optional_best_seats, optional_best_line))
+                    return self.unfake_best_seats(optional_best_seats, optional_best_line)
                 else:
                     # Move and check again
                     continue
@@ -223,7 +215,7 @@ class BestSeats(MovieOrder):
         else:
             # Optional_best_seats are contained in one of the optional best line's chunks
             # return the real seats and real line numbers
-            return self.reverse_real_best_seats_to_user(self.unfake_best_seats(optional_best_seats, optional_best_line))
+            return self.unfake_best_seats(optional_best_seats, optional_best_line)
 
     def find_best_seats(self, max_movement_between_lines=2):
         # The master function used to find the best seats:
@@ -258,6 +250,16 @@ class BestSeats(MovieOrder):
             # ideal best_seats are contained in one of the ideal best line's chunks
             return validation_of_ideal_best_seats
 
+    def reverse_real_best_seats_to_user(self, best_seats_tuple):
+        # The scraping gives us the seats as counted from left to write,
+        # while the movie theaters actually count them from right to left.
+        # This function "reverses" the best seats tuple and presents it as shown by the movie theater
+        best_seats = best_seats_tuple[0]
+        best_line = best_seats_tuple[1]
+        seats_in_best_line = list(self.real_seats_db[best_line]["seats"].keys())
+        reversed_to_user_best_seats = seats_in_best_line[::-1][(best_seats[0] - 1):best_seats[-1]][::-1]
+        return reversed_to_user_best_seats, best_line
+
 
 if __name__ == "__main__":
 
@@ -265,6 +267,7 @@ if __name__ == "__main__":
     movie_tickets = 9
     check = BestSeats(movie_seats, movie_tickets)
     print(check.best_seats)
+    print(check.reversed_best_seats)
     print(check.steps_away_from_ideal)
 
     # add 'gushim' support in get_best_line_candidate and get_optional_best_seats
