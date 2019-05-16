@@ -8,11 +8,12 @@ def load_websites():
     while True:
         print("thinking")
         # schedule job, something like:
-        general_time_to_scrape = str(datetime.time(10, 47, 0))
+        general_time_to_scrape = str(datetime.time(9, 48, 0))
         now = str(datetime.datetime.now().time())[:-7]
         # then, when the job runs:
         scrapers = [RavHenScraper]
         if general_time_to_scrape == now:
+            print("working")
             for scraper in scrapers:
                 scraper_websites = [attr for attr in dir(scraper) if attr[0].isupper()]
                 for website in scraper_websites:
@@ -21,7 +22,7 @@ def load_websites():
                     # scrape to load json
                     scraper.load_website_data_to_json(getattr(scraper, website))
                     # a random delay before going on the next
-                    time.sleep(random.randint(8, 30))
+                    time.sleep(random.randint(4, 15))
             return "Done"
 
 
