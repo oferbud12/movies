@@ -8,7 +8,7 @@ def load_websites():
     while True:
         print("thinking")
         # schedule job, something like:
-        general_time_to_scrape = str(datetime.time(9, 48, 0))
+        general_time_to_scrape = str(datetime.time(18, 22, 0))
         now = str(datetime.datetime.now().time())[:-7]
         # then, when the job runs:
         scrapers = [RavHenScraper]

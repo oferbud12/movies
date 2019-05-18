@@ -1,6 +1,3 @@
-import math
-
-
 class MovieOrder:
 
     def __init__(self, seats_db, tickets):
@@ -102,70 +99,7 @@ class MovieOrder:
         return fake_optional_lines
 
 
-class UserType(MovieOrder):
 
-    TYPE_VERTICAL_ENDS = {1: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          2: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          3: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          4: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          5: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          6: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          7: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          8: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              },
-                          9: {"vertical":
-                                  {"start": 0.00000000001, "end": 0.5},
-                              "horizontal":
-                                  {"start": 0.00000000001, "end": float(1/3)}
-                              }
-                          }
-
-    def __init__(self, type_height_ratio, type_horizontal_ratio, *args, **kwargs):
-        super(UserType, self).__init__(*args, **kwargs)
-        self.type_height_ratio = type_height_ratio
-        self.type_horizontal_ratio = type_horizontal_ratio
-        self.max_movement_for_ideal_best_line = None
-        self.max_movement_in_line = None
-        self.max_movement_between_lines = None
-
-    def get_gush_ends(self):
-        gush_start_line = math.ceil(0.5 * self.theater_measures[1])
-    
-class UserType5(UserType):
-
-    def __init__(self, *args, **kwargs):
-        super(UserType5, self).__init__(type_height_ratio = float(5 / 8), type_horizontal_ratio = float(1 / 2), *args, **kwargs)
 
 
 
